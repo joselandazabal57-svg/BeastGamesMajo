@@ -15,7 +15,7 @@ Registro de fases de implementación, decisiones de reordenamiento y estado actu
 | **F16** | **GameScreen — UI de juego activa con tablas** | ✅ completada |
 | **F11** | **Banco de contenido: varias-cifras (multidigit)** | ✅ completada |
 | **F12** | **Banco de contenido: mcm-mcd** | ✅ completada |
-| F13 | Banco de contenido: analíticos | pendiente |
+| **F13** | **Banco de contenido: analíticos** | ✅ completada |
 | F14 | Learn screen (/aprender/[moduleId]) | pendiente |
 | F15 | Practice screen (/practicar/[moduleId]) | pendiente |
 

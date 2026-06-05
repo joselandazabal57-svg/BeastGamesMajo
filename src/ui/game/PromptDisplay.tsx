@@ -4,7 +4,7 @@
  * F16 supports: arithmetic (a op b = ?)
  * F11 adds:     multidigit (operands[0] op operands[1] … = ?)
  * F12 adds:     lcm-gcd (MCM/MCD(a, b) = ?)
- * Future phases add word-problem, pattern, comparison.
+ * F13 adds:     word-problem (text block) + pattern (sequence with ?)
  */
 
 'use client';
@@ -115,12 +115,72 @@ export function PromptDisplay({ prompt }: PromptDisplayProps) {
     );
   }
 
-  // Fallback for prompt types not yet implemented (F13).
-  return (
-    <div className="py-8 text-center text-white/30 text-sm">
-      [Tipo de pregunta no soportado todavía]
-    </div>
-  );
+  if (prompt.type === 'word-problem') {
+    return (
+      <div
+        className="flex flex-col gap-5 py-4 px-2 w-full max-w-xs"
+        role="region"
+        aria-label={prompt.text}
+      >
+        <p className="text-base text-white/80 leading-snug text-center">
+          {prompt.text}
+        </p>
+        <div className="flex items-center justify-center gap-2">
+          <Equals />
+          <QuestionMark />
+        </div>
+      </div>
+    );
+  }
+
+  if (prompt.type === 'pattern') {
+    const ariaLabel =
+      prompt.sequence.map((n) => (n === null ? '?' : String(n))).join(', ');
+    return (
+      <div
+        className="flex flex-col items-center gap-3 py-4"
+        role="math"
+        aria-label={`Secuencia: ${ariaLabel}`}
+      >
+        <div className="flex items-center flex-wrap justify-center gap-1.5">
+          {prompt.sequence.map((n, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              {n === null ? (
+                <span
+                  className="font-[family-name:var(--font-display)] text-5xl leading-none"
+                  style={{ color: 'var(--color-gold)' }}
+                  aria-hidden
+                >
+                  ?
+                </span>
+              ) : (
+                <span
+                  className="font-[family-name:var(--font-display)] text-5xl leading-none text-white"
+                  aria-hidden
+                >
+                  {n}
+                </span>
+              )}
+              {i < prompt.sequence.length - 1 && (
+                <span
+                  className="font-[family-name:var(--font-display)] text-3xl leading-none text-white/25"
+                  aria-hidden
+                >
+                  ,
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-white/30 mt-1">
+          ¿Qué número falta?
+        </p>
+      </div>
+    );
+  }
+
+  // Unreachable — all ItemPrompt types are handled above.
+  return null;
 }
 
 function Number({ value }: { value: number }) {

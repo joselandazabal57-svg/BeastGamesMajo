@@ -99,6 +99,40 @@ export const FEEDBACK_TEMPLATES: readonly FeedbackTemplate[] = [
     hint: 'Calcula el MCD primero, luego MCM = (a × b) ÷ MCD.',
     encouragement: '¡Excelente recuperación!',
   },
+
+  /* ─── Analíticos — problemas verbales ───────────────────────────── */
+  {
+    id: 'analiticos.wp.easy',
+    hint: 'Lee el problema de nuevo e identifica la operación.',
+    encouragement: '¡Bien recuperado!',
+  },
+  {
+    id: 'analiticos.wp.medium',
+    hint: 'Busca qué operación conecta los datos con la pregunta.',
+    encouragement: '¡Ya lo tienes!',
+  },
+  {
+    id: 'analiticos.wp.hard',
+    hint: 'Descompón el problema en pasos: ¿qué sabes? ¿qué buscas?',
+    encouragement: '¡Excelente recuperación!',
+  },
+
+  /* ─── Analíticos — secuencias y patrones ────────────────────────── */
+  {
+    id: 'analiticos.seq.easy',
+    hint: 'Calcula la diferencia entre los números consecutivos.',
+    encouragement: '¡Bien recuperado!',
+  },
+  {
+    id: 'analiticos.seq.medium',
+    hint: 'Busca si la diferencia entre términos es constante o crece.',
+    encouragement: '¡Ya lo tienes!',
+  },
+  {
+    id: 'analiticos.seq.hard',
+    hint: '¿Se multiplica o divide por la misma cantidad? Busca el factor.',
+    encouragement: '¡Excelente recuperación!',
+  },
 ] as const;
 
 /**
