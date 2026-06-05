@@ -50,6 +50,23 @@ export const FEEDBACK_TEMPLATES: readonly FeedbackTemplate[] = [
     hint: 'Repasa las tablas del 8 y el 9 — la división sale sola.',
     encouragement: '¡Excelente recuperación!',
   },
+
+  /* ─── Varias cifras ──────────────────────────────────────────────── */
+  {
+    id: 'varias-cifras.easy',
+    hint: 'Multiplica decenas y unidades por separado y suma.',
+    encouragement: '¡Bien recuperado!',
+  },
+  {
+    id: 'varias-cifras.medium',
+    hint: 'Descompone: (10 × b) + (unidades × b).',
+    encouragement: '¡Ya lo tienes!',
+  },
+  {
+    id: 'varias-cifras.hard',
+    hint: 'Multiplica unidades primero, lleva el acarreo, luego decenas.',
+    encouragement: '¡Excelente recuperación!',
+  },
 ] as const;
 
 /**

@@ -13,7 +13,7 @@ Registro de fases de implementación, decisiones de reordenamiento y estado actu
 | F9 | Home screen (ModuleCard grid, HomeHeader, /modulo/[id] picker) | ✅ completada |
 | F10 | Bancos de contenido: tablas (64 ítems), divisiones (64 ítems), feedback templates | ✅ completada |
 | **F16** | **GameScreen — UI de juego activa con tablas** | ✅ completada |
-| F11 | Banco de contenido: varias-cifras (multidigit) | pendiente |
+| **F11** | **Banco de contenido: varias-cifras (multidigit)** | ✅ completada |
 | F12 | Banco de contenido: mcm-mcd | pendiente |
 | F13 | Banco de contenido: analíticos | pendiente |
 | F14 | Learn screen (/aprender/[moduleId]) | pendiente |
