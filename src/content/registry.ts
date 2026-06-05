@@ -15,13 +15,14 @@ import type { ModuleId, Item } from '@/content/types';
 import { TABLES_ITEMS } from '@/content/tables/items';
 import { DIVISIONS_ITEMS } from '@/content/divisions/items';
 import { MULTIDIGIT_ITEMS } from '@/content/multidigit/items';
+import { LCM_GCD_ITEMS } from '@/content/lcm-gcd/items';
 
 export const CONTENT_REGISTRY: Partial<Record<ModuleId, readonly Item[]>> = {
   tablas: TABLES_ITEMS,
   divisiones: DIVISIONS_ITEMS,
   'varias-cifras': MULTIDIGIT_ITEMS,
-  // 'mcm-mcd':    MCM_MCD_ITEMS,   ← F12
-  // analiticos:   ANALYTICS_ITEMS, ← F13
+  'mcm-mcd': LCM_GCD_ITEMS,
+  // analiticos: ANALYTICS_ITEMS, ← F13
 };
 
 /** Returns the item bank for a module, or undefined if not yet available. */

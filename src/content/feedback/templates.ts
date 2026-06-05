@@ -67,6 +67,38 @@ export const FEEDBACK_TEMPLATES: readonly FeedbackTemplate[] = [
     hint: 'Multiplica unidades primero, lleva el acarreo, luego decenas.',
     encouragement: '¡Excelente recuperación!',
   },
+
+  /* ─── MCM / MCD ──────────────────────────────────────────────────── */
+  {
+    id: 'mcm-mcd.mcd.easy',
+    hint: 'El MCD es el número más grande que divide a ambos.',
+    encouragement: '¡Bien recuperado!',
+  },
+  {
+    id: 'mcm-mcd.mcd.medium',
+    hint: 'Lista los factores de cada número y busca el mayor común.',
+    encouragement: '¡Ya lo tienes!',
+  },
+  {
+    id: 'mcm-mcd.mcd.hard',
+    hint: 'Usa el algoritmo de Euclides: MCD(a,b) = MCD(b, a mod b).',
+    encouragement: '¡Excelente recuperación!',
+  },
+  {
+    id: 'mcm-mcd.mcm.easy',
+    hint: 'El MCM es el múltiplo más pequeño que comparten los dos.',
+    encouragement: '¡Bien recuperado!',
+  },
+  {
+    id: 'mcm-mcd.mcm.medium',
+    hint: 'MCM(a, b) = (a × b) ÷ MCD(a, b).',
+    encouragement: '¡Ya lo tienes!',
+  },
+  {
+    id: 'mcm-mcd.mcm.hard',
+    hint: 'Calcula el MCD primero, luego MCM = (a × b) ÷ MCD.',
+    encouragement: '¡Excelente recuperación!',
+  },
 ] as const;
 
 /**

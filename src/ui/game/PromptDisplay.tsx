@@ -3,7 +3,8 @@
  *
  * F16 supports: arithmetic (a op b = ?)
  * F11 adds:     multidigit (operands[0] op operands[1] … = ?)
- * Future phases add lcm-gcd, word-problem, etc.
+ * F12 adds:     lcm-gcd (MCM/MCD(a, b) = ?)
+ * Future phases add word-problem, pattern, comparison.
  */
 
 'use client';
@@ -58,7 +59,63 @@ export function PromptDisplay({ prompt }: PromptDisplayProps) {
     );
   }
 
-  // Fallback for prompt types not yet implemented (F12-F13).
+  if (prompt.type === 'lcm-gcd') {
+    const label = prompt.target.toUpperCase();
+    const numsStr = prompt.numbers.join(', ');
+    return (
+      <div
+        className="flex flex-col items-center justify-center gap-4 py-6"
+        aria-label={`${label} de ${numsStr} = ?`}
+        role="math"
+      >
+        {/* Function label: MCM or MCD */}
+        <span
+          className="font-[family-name:var(--font-display)] text-2xl leading-none tracking-widest"
+          style={{ color: 'var(--color-gold-2)' }}
+          aria-hidden
+        >
+          {label}
+        </span>
+        {/* Numbers in parentheses */}
+        <div className="flex items-center gap-2">
+          <span
+            className="font-[family-name:var(--font-display)] text-4xl leading-none text-white/40"
+            aria-hidden
+          >
+            (
+          </span>
+          {prompt.numbers.map((n, i) => (
+            <span key={i} className="flex items-center gap-2">
+              <span
+                className="font-[family-name:var(--font-display)] text-6xl leading-none text-white"
+                aria-hidden
+              >
+                {n}
+              </span>
+              {i < prompt.numbers.length - 1 && (
+                <span
+                  className="font-[family-name:var(--font-display)] text-4xl leading-none text-white/40"
+                  aria-hidden
+                >
+                  ,
+                </span>
+              )}
+            </span>
+          ))}
+          <span
+            className="font-[family-name:var(--font-display)] text-4xl leading-none text-white/40"
+            aria-hidden
+          >
+            )
+          </span>
+          <Equals />
+          <QuestionMark />
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback for prompt types not yet implemented (F13).
   return (
     <div className="py-8 text-center text-white/30 text-sm">
       [Tipo de pregunta no soportado todavía]
