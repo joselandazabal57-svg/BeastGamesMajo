@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { MODULE_IDS, type ModuleId } from '@/content/types';
 import { MODULES } from '@/content/modules';
+import { hasContent } from '@/content/registry';
 import { useProgressStore } from '@/state';
 import { Button, MasteryBar, Modal } from '@/ui/shared';
 
@@ -178,13 +179,22 @@ export default function ModulePage({
           Modo de juego
         </h2>
         <div className="flex flex-col gap-2">
-          {GAME_MODES.map((mode) => (
-            <ModeCard
-              key={mode.id}
-              mode={mode}
-              onPlay={() => setComingSoon(true)}
-            />
-          ))}
+          {GAME_MODES.map((mode) => {
+            // reto-reloj is live for modules that have content in the registry.
+            const isLive = mode.id === 'reto-reloj' && isModuleId(moduleId) && hasContent(moduleId);
+            return (
+              <ModeCard
+                key={mode.id}
+                mode={mode}
+                onPlay={
+                  isLive
+                    ? () => router.push(`/jugar/${moduleId}/${mode.id}`)
+                    : () => setComingSoon(true)
+                }
+                live={isLive}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -261,9 +271,11 @@ function Stat({
 function ModeCard({
   mode,
   onPlay,
+  live = false,
 }: {
   mode: ModeConfig;
   onPlay: () => void;
+  live?: boolean;
 }) {
   return (
     <motion.button
@@ -274,14 +286,14 @@ function ModeCard({
       className="flex items-center gap-4 p-4 rounded-xl border text-left w-full cursor-pointer transition-colors duration-150"
       style={{
         background: 'var(--color-panel)',
-        borderColor: `color-mix(in srgb, ${mode.accentVar} 25%, transparent)`,
+        borderColor: `color-mix(in srgb, ${mode.accentVar} ${live ? '45%' : '25%'}, transparent)`,
       }}
-      aria-label={`Jugar ${mode.label}`}
+      aria-label={`Jugar ${mode.label}${live ? '' : ' (próximamente)'}`}
     >
       <span className="flex-none text-3xl leading-none" aria-hidden>
         {mode.emoji}
       </span>
-      <div className="flex flex-col gap-0.5 min-w-0">
+      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
         <span
           className="font-[family-name:var(--font-display)] text-lg uppercase leading-none"
           style={{ color: mode.accentVar }}
@@ -292,6 +304,18 @@ function ModeCard({
           {mode.description}
         </span>
       </div>
+      {live ? (
+        <span
+          className="flex-none text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+          style={{ background: mode.accentVar, color: 'var(--color-bg)' }}
+        >
+          Jugar
+        </span>
+      ) : (
+        <span className="flex-none text-[10px] text-white/20 uppercase tracking-wider">
+          Pronto
+        </span>
+      )}
     </motion.button>
   );
 }

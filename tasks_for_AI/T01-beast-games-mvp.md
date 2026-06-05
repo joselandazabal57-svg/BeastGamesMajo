@@ -12,7 +12,7 @@ Registro de fases de implementación, decisiones de reordenamiento y estado actu
 | F8 | UI compartida (Button, Modal, FeedbackFlash, PrizeLadder, etc.) | ✅ completada |
 | F9 | Home screen (ModuleCard grid, HomeHeader, /modulo/[id] picker) | ✅ completada |
 | F10 | Bancos de contenido: tablas (64 ítems), divisiones (64 ítems), feedback templates | ✅ completada |
-| **F16** | **GameScreen — UI de juego activa con tablas** | ⬅ **EN CURSO** |
+| **F16** | **GameScreen — UI de juego activa con tablas** | ✅ completada |
 | F11 | Banco de contenido: varias-cifras (multidigit) | pendiente |
 | F12 | Banco de contenido: mcm-mcd | pendiente |
 | F13 | Banco de contenido: analíticos | pendiente |
