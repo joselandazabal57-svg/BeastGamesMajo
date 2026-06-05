@@ -16,8 +16,8 @@ Registro de fases de implementación, decisiones de reordenamiento y estado actu
 | **F11** | **Banco de contenido: varias-cifras (multidigit)** | ✅ completada |
 | **F12** | **Banco de contenido: mcm-mcd** | ✅ completada |
 | **F13** | **Banco de contenido: analíticos** | ✅ completada |
-| F14 | Learn screen (/aprender/[moduleId]) | pendiente |
-| F15 | Practice screen (/practicar/[moduleId]) | pendiente |
+| **F14** | **Learn screen (/aprender/[moduleId])** | ✅ completada |
+| **F15** | **Practice screen (/practicar/[moduleId])** | ✅ completada |
 
 ---
 

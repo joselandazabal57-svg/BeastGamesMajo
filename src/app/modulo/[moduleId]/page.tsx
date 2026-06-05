@@ -206,7 +206,11 @@ export default function ModulePage({
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="ghost"
-            onClick={() => setComingSoon(true)}
+            onClick={
+              hasContent(moduleId)
+                ? () => router.push(`/aprender/${moduleId}`)
+                : () => setComingSoon(true)
+            }
             className="flex-col h-16 gap-1"
           >
             <span className="text-xl" aria-hidden>📖</span>
@@ -214,7 +218,11 @@ export default function ModulePage({
           </Button>
           <Button
             variant="ghost"
-            onClick={() => setComingSoon(true)}
+            onClick={
+              hasContent(moduleId)
+                ? () => router.push(`/practicar/${moduleId}`)
+                : () => setComingSoon(true)
+            }
             className="flex-col h-16 gap-1"
           >
             <span className="text-xl" aria-hidden>✏️</span>
