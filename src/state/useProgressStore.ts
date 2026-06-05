@@ -1,0 +1,152 @@
+/**
+ * useProgressStore — reactive cache of Leitner states + prize ledger
+ * + per-module mastery aggregates.
+ *
+ * Persisted to Dexie on every mutation. Source of truth on disk is Dexie;
+ * this store is the reactive read model.
+ */
+
+'use client';
+
+import { create } from 'zustand';
+import type { LeitnerState } from '@/domain/leitner/types';
+import { applyAnswer } from '@/domain/leitner/engine';
+import {
+  moduleMastery,
+  type ModuleMastery,
+} from '@/domain/progress/mastery';
+import { leitnerRepo, prizeRepo } from '@/infra/db/repos';
+import type { PrizeLedger } from '@/infra/db/schema';
+import {
+  MODULE_IDS,
+  type ModuleId,
+} from '@/content/types';
+
+type ProgressState = {
+  statesByItem: Record<string, LeitnerState>;
+  prizeLedger: PrizeLedger;
+  moduleMastery: Record<ModuleId, ModuleMastery>;
+  loaded: boolean;
+};
+
+type ProgressActions = {
+  loadFromDb: () => Promise<void>;
+  /** Record an answer in-memory and persist. Returns the new state. */
+  recordAnswer: (
+    itemId: string,
+    moduleId: ModuleId,
+    correct: boolean,
+    now: number,
+  ) => Promise<LeitnerState>;
+  /** Add coins to ledger (e.g. from a game round). */
+  addCoins: (amount: number) => Promise<void>;
+  addTrophy: () => Promise<void>;
+  /** Bulk apply (e.g. end-of-round). */
+  applyBulk: (states: readonly LeitnerState[]) => Promise<void>;
+  reset: () => void;
+};
+
+const emptyMastery = (): Record<ModuleId, ModuleMastery> => {
+  const out = {} as Record<ModuleId, ModuleMastery>;
+  for (const id of MODULE_IDS) {
+    out[id] = {
+      masteredCount: 0,
+      inProgressCount: 0,
+      weakCount: 0,
+      masteryPercent: 0,
+    };
+  }
+  return out;
+};
+
+const INITIAL: ProgressState = {
+  statesByItem: {},
+  prizeLedger: {
+    id: 'singleton',
+    coins: 0,
+    gems: 0,
+    trophies: 0,
+    badges: [],
+  },
+  moduleMastery: emptyMastery(),
+  loaded: false,
+};
+
+function recomputeMastery(
+  statesByItem: Record<string, LeitnerState>,
+): Record<ModuleId, ModuleMastery> {
+  const buckets: Record<ModuleId, LeitnerState[]> = {} as Record<ModuleId, LeitnerState[]>;
+  for (const id of MODULE_IDS) buckets[id] = [];
+  for (const s of Object.values(statesByItem)) {
+    const dot = s.itemId.indexOf('.');
+    if (dot < 0) continue;
+    const prefix = s.itemId.slice(0, dot) as ModuleId;
+    if (buckets[prefix]) buckets[prefix].push(s);
+  }
+  const out = {} as Record<ModuleId, ModuleMastery>;
+  for (const id of MODULE_IDS) out[id] = moduleMastery(buckets[id]);
+  return out;
+}
+
+export const useProgressStore = create<ProgressState & ProgressActions>(
+  (set, get) => ({
+    ...INITIAL,
+
+    async loadFromDb() {
+      const [states, ledger] = await Promise.all([
+        leitnerRepo.getAll(),
+        prizeRepo.get(),
+      ]);
+      const statesByItem: Record<string, LeitnerState> = {};
+      for (const s of states) statesByItem[s.itemId] = s;
+      set({
+        statesByItem,
+        prizeLedger: ledger,
+        moduleMastery: recomputeMastery(statesByItem),
+        loaded: true,
+      });
+    },
+
+    async recordAnswer(itemId, _moduleId, correct, now) {
+      const prev = get().statesByItem[itemId] ?? {
+        itemId,
+        box: 0,
+        sessionsUntilReview: 0,
+        consecutiveCorrect: 0,
+        totalSeen: 0,
+        totalWrong: 0,
+        lastSeenAt: 0,
+      };
+      const next = applyAnswer(prev, correct, now);
+      await leitnerRepo.put(next);
+      const nextStates = { ...get().statesByItem, [itemId]: next };
+      set({
+        statesByItem: nextStates,
+        moduleMastery: recomputeMastery(nextStates),
+      });
+      return next;
+    },
+
+    async addCoins(amount) {
+      const ledger = await prizeRepo.addCoins(amount);
+      set({ prizeLedger: ledger });
+    },
+
+    async addTrophy() {
+      const ledger = await prizeRepo.addTrophy();
+      set({ prizeLedger: ledger });
+    },
+
+    async applyBulk(states) {
+      await leitnerRepo.bulkApply(states);
+      const merged = { ...get().statesByItem };
+      for (const s of states) merged[s.itemId] = s;
+      set({
+        statesByItem: merged,
+        moduleMastery: recomputeMastery(merged),
+      });
+    },
+
+    reset: () => set(INITIAL),
+  }),
+);

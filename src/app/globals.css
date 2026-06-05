@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  /* Beast Games palette (from prototype reto-bestial) */
+  --color-bg: #0a0814;
+  --color-panel: #15102a;
+  --color-ink: #ffffff;
+  --color-gold: #ffc300;
+  --color-gold-2: #ff9500;
+  --color-magenta: #ff2d78;
+  --color-lime: #39ff88;
+  --color-red-glow: #ff3b3b;
+
+  /* Fonts (loaded via next/font/google in layout.tsx) */
+  --font-display: var(--font-anton);
+  --font-body: var(--font-fredoka);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+* {
+  box-sizing: border-box;
+}

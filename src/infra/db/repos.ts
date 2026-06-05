@@ -1,0 +1,211 @@
+/**
+ * Repositories — typed wrappers over Dexie tables.
+ *
+ * Source of truth: docs/hltc-beast-games.md §4.1 (Infra layer ownership).
+ *
+ * Boundary rule: this module is the ONLY place that touches Dexie tables.
+ * The state layer calls repos; the UI layer never imports from here directly.
+ */
+
+import {
+  getDb,
+  DEFAULT_SETTINGS,
+  DEFAULT_PRIZE_LEDGER,
+  SINGLETON_KEY,
+  type LeitnerStateRow,
+  type PrizeLedger,
+  type SessionLogEntry,
+  type Settings,
+} from './schema';
+import { initialState } from '@/domain/leitner/engine';
+import {
+  decrementSessionIntervals,
+  isSessionClosed,
+} from '@/domain/leitner/session';
+import type { ItemId, LeitnerState } from '@/domain/leitner/types';
+
+/* ------------------------------------------------------------------ */
+/* Settings repo                                                       */
+/* ------------------------------------------------------------------ */
+
+export const settingsRepo = {
+  async get(): Promise<Settings> {
+    const row = await getDb().settings.get(SINGLETON_KEY);
+    if (row) return row;
+    // First-ever read: seed defaults.
+    await getDb().settings.put(DEFAULT_SETTINGS);
+    return DEFAULT_SETTINGS;
+  },
+
+  async setAudio(enabled: boolean): Promise<void> {
+    await getDb().settings.update(SINGLETON_KEY, { audioEnabled: enabled });
+  },
+
+  async markOnboarded(): Promise<void> {
+    await getDb().settings.update(SINGLETON_KEY, { hasOnboarded: true });
+  },
+
+  /**
+   * T4.5 — Called on app open. Returns the current settings AFTER applying
+   * any pending session decrement, so callers don't need a second round-trip.
+   *
+   * Behavior: if elapsed time since lastInteractionAt exceeds the session
+   * timeout, run `decrementSessionIntervals` against all Leitner states once,
+   * then update lastInteractionAt to now.
+   */
+  async beginSession(now: number): Promise<Settings> {
+    const current = await settingsRepo.get();
+    if (current.lastInteractionAt > 0 && isSessionClosed(current.lastInteractionAt, now)) {
+      const all = await leitnerRepo.getAll();
+      const decremented = decrementSessionIntervals(all);
+      await leitnerRepo.bulkApply(decremented);
+    }
+    await getDb().settings.update(SINGLETON_KEY, { lastInteractionAt: now });
+    return { ...current, lastInteractionAt: now };
+  },
+
+  /** Mark that the user is still interacting (call on each meaningful action). */
+  async touch(now: number): Promise<void> {
+    await getDb().settings.update(SINGLETON_KEY, { lastInteractionAt: now });
+  },
+
+  /** Destructive — wipes everything. Used by "Reset progress" in Ajustes. */
+  async hardReset(): Promise<void> {
+    await getDb().transaction(
+      'rw',
+      [getDb().settings, getDb().leitnerStates, getDb().prizeLedger, getDb().sessionLog],
+      async () => {
+        await getDb().settings.clear();
+        await getDb().leitnerStates.clear();
+        await getDb().prizeLedger.clear();
+        await getDb().sessionLog.clear();
+      },
+    );
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Leitner repo                                                        */
+/* ------------------------------------------------------------------ */
+
+export const leitnerRepo = {
+  async getAll(): Promise<LeitnerStateRow[]> {
+    return getDb().leitnerStates.toArray();
+  },
+
+  async getByModule(moduleIdPrefix: string): Promise<LeitnerStateRow[]> {
+    return getDb()
+      .leitnerStates.where('itemId')
+      .startsWith(`${moduleIdPrefix}.`)
+      .toArray();
+  },
+
+  /**
+   * T4.3 — Get a state, or create+persist a fresh one if it doesn't exist.
+   */
+  async getOrInit(itemId: ItemId): Promise<LeitnerStateRow> {
+    const existing = await getDb().leitnerStates.get(itemId);
+    if (existing) return existing;
+    const fresh = initialState(itemId);
+    await getDb().leitnerStates.put(fresh);
+    return fresh;
+  },
+
+  async put(state: LeitnerState): Promise<void> {
+    await getDb().leitnerStates.put(state);
+  },
+
+  /**
+   * T4.4 — Atomic bulk update. Called at the end of each game round so all
+   * answered items persist together.
+   */
+  async bulkApply(updates: readonly LeitnerState[]): Promise<void> {
+    if (updates.length === 0) return;
+    await getDb().leitnerStates.bulkPut(updates as LeitnerState[]);
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Prize ledger repo                                                   */
+/* ------------------------------------------------------------------ */
+
+export const prizeRepo = {
+  async get(): Promise<PrizeLedger> {
+    const row = await getDb().prizeLedger.get(SINGLETON_KEY);
+    if (row) return row;
+    await getDb().prizeLedger.put(DEFAULT_PRIZE_LEDGER);
+    return DEFAULT_PRIZE_LEDGER;
+  },
+
+  async addCoins(amount: number): Promise<PrizeLedger> {
+    const ledger = await prizeRepo.get();
+    const next = { ...ledger, coins: ledger.coins + amount };
+    await getDb().prizeLedger.put(next);
+    return next;
+  },
+
+  async addGems(amount: number): Promise<PrizeLedger> {
+    const ledger = await prizeRepo.get();
+    const next = { ...ledger, gems: ledger.gems + amount };
+    await getDb().prizeLedger.put(next);
+    return next;
+  },
+
+  async addTrophy(): Promise<PrizeLedger> {
+    const ledger = await prizeRepo.get();
+    const next = { ...ledger, trophies: ledger.trophies + 1 };
+    await getDb().prizeLedger.put(next);
+    return next;
+  },
+
+  async addBadge(badgeId: string): Promise<PrizeLedger> {
+    const ledger = await prizeRepo.get();
+    if (ledger.badges.includes(badgeId)) return ledger;
+    const next = { ...ledger, badges: [...ledger.badges, badgeId] };
+    await getDb().prizeLedger.put(next);
+    return next;
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Session log repo                                                    */
+/* ------------------------------------------------------------------ */
+
+export const sessionLogRepo = {
+  async append(entry: Omit<SessionLogEntry, 'id'>): Promise<number> {
+    const id = await getDb().sessionLog.add(entry as SessionLogEntry);
+    return id as number;
+  },
+
+  async recent(limit = 50): Promise<SessionLogEntry[]> {
+    return getDb()
+      .sessionLog.orderBy('startedAt')
+      .reverse()
+      .limit(limit)
+      .toArray();
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Availability check                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * T4.6 — Detect whether IndexedDB is usable in the current environment.
+ *
+ * Returns false in: SSR build (no window), private browsing in some browsers,
+ * very old browsers, or when the browser denies storage. The UI bootstrap
+ * checks this and renders a blocking error screen on false.
+ */
+export async function isDbAvailable(): Promise<boolean> {
+  if (typeof globalThis === 'undefined') return false;
+  const g = globalThis as { indexedDB?: unknown };
+  if (typeof g.indexedDB === 'undefined') return false;
+  try {
+    // Try to actually open the DB — Dexie throws on Safari private mode etc.
+    await getDb().open();
+    return true;
+  } catch {
+    return false;
+  }
+}
