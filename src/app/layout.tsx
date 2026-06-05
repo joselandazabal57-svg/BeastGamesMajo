@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { BootstrapGate } from "@/ui/shared";
 
 // NOTA: en producción/dev real con internet, sustituir el bloque de abajo por:
 //   import { Anton, Fredoka } from "next/font/google";
@@ -42,7 +43,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <BootstrapGate>{children}</BootstrapGate>
+      </body>
     </html>
   );
 }
