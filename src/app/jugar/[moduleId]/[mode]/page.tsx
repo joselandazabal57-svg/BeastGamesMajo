@@ -2,10 +2,12 @@
  * /jugar/[moduleId]/[mode] — game session page.
  *
  * Validates params, looks up content from the registry, and renders
- * GameScreen. Shows a friendly error if the module has no content yet.
+ * the appropriate game screen based on mode.
  *
- * v2 (T02 F21): If the player has powerups in inventory, shows the
- * PowerupPicker first. Confirmed effects are passed to GameScreen.
+ * Modes:
+ *   - reto-reloj: PowerupPicker → GameScreen (T02)
+ *   - memoria:    MemoriaScreen (T05 §F25)
+ *   - jefe-final: BossFinalScreen (T05 §F26) — no powerups
  *
  * Next.js 16: params is a Promise — use React.use() in client components.
  */
@@ -17,7 +19,7 @@ import { useRouter } from 'next/navigation';
 import { MODULE_IDS, GAME_MODES, type ModuleId } from '@/content/types';
 import type { GameMode } from '@/content/types';
 import { getModuleItems } from '@/content/registry';
-import { GameScreen } from '@/ui/game';
+import { GameScreen, MemoriaScreen, BossFinalScreen } from '@/ui/game';
 import { Button } from '@/ui//shared';
 import { PowerupPicker } from '@/ui/shop/PowerupPicker';
 import { useInventoryStore } from '@/state/useInventoryStore';
@@ -60,16 +62,16 @@ export default function JugarPage({
     );
   }
 
-  /* Only reto-reloj is implemented in F16 */
-  if (mode !== 'reto-reloj') {
-    return (
-      <ErrorScreen
-        message={`El modo "${mode}" estará disponible pronto.`}
-        onBack={() => router.back()}
-      />
-    );
+  /* Route to mode-specific inner component */
+  if (mode === 'memoria') {
+    return <MemoriaScreen moduleId={moduleId} items={items} />;
   }
 
+  if (mode === 'jefe-final') {
+    return <BossFinalScreen moduleId={moduleId} items={items} />;
+  }
+
+  /* reto-reloj (with optional powerup picker) */
   return <JugarInner moduleId={moduleId} />;
 }
 

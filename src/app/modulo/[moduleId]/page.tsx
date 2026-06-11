@@ -180,8 +180,8 @@ export default function ModulePage({
         </h2>
         <div className="flex flex-col gap-2">
           {GAME_MODES.map((mode) => {
-            // reto-reloj is live for modules that have content in the registry.
-            const isLive = mode.id === 'reto-reloj' && isModuleId(moduleId) && hasContent(moduleId);
+            // T05: all modes are live for modules that have content.
+            const isLive = isModuleId(moduleId) && hasContent(moduleId);
             return (
               <ModeCard
                 key={mode.id}
