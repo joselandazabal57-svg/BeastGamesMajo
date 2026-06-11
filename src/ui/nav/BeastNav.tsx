@@ -38,6 +38,20 @@ function isActive(item: NavItem, pathname: string): boolean {
   return item.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
 }
 
+/**
+ * Session routes where the bar must never appear: it would cover the bottom
+ * row of the numeric keypad and invite accidental exits.
+ *
+ * Only /practicar/[moduleId] needs this route check: it runs its session
+ * without useGameStore. The three game modes already hide the bar via
+ * gameStatus ('playing'|'paused'), which correctly KEEPS it visible on the
+ * pre-round PowerupPicker (T04 §A.4). The roulette reto renders as a z-50
+ * overlay above the bar.
+ */
+function isSessionRoute(pathname: string): boolean {
+  return pathname.startsWith('/practicar/');
+}
+
 export function BeastNav() {
   const pathname = usePathname();
   const gameStatus = useGameStore((s) => s.status);
@@ -49,6 +63,9 @@ export function BeastNav() {
 
   // A.4 — hidden during an active round to avoid accidental mid-game exits.
   if (gameStatus === 'playing' || gameStatus === 'paused') return null;
+  // Also hidden on session screens (practicar/aprender/jugar) so the bar
+  // never overlaps the numeric keypad.
+  if (isSessionRoute(pathname)) return null;
 
   // Recompute on every render; depends on lastFreeSpinDay/earnedSpins above.
   void lastFreeSpinDay;
