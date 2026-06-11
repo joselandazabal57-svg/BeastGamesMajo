@@ -20,6 +20,7 @@ import { useProgressStore } from './useProgressStore';
 import { useInventoryStore } from './useInventoryStore';
 import { useStreaksStore } from './useStreaksStore';
 import { useRecordsStore } from './useRecordsStore';
+import { useRouletteStore } from './useRouletteStore';
 import { audioManager } from '@/infra/audio/manager';
 
 export type BootstrapStatus =
@@ -58,6 +59,7 @@ export function useBootstrap(): BootstrapStatus {
           useInventoryStore.getState().loadFromDb(),
           useStreaksStore.getState().loadFromDb(),
           useRecordsStore.getState().loadFromDb(),
+          useRouletteStore.getState().loadFromDb(),
         ]);
         // 3. Apply day streak for today.
         await useStreaksStore.getState().applyDay(todayLocalISO());

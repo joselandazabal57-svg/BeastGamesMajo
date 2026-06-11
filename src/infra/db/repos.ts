@@ -22,6 +22,8 @@ import {
   type StreaksRow,
   type GameRecordRow,
   type GlobalsRecordRow,
+  type RouletteRow,
+  DEFAULT_ROULETTE,
 } from './schema';
 import { initialState } from '@/domain/leitner/engine';
 import {
@@ -52,6 +54,11 @@ export const settingsRepo = {
 
   async markOnboarded(): Promise<void> {
     await getDb().settings.update(SINGLETON_KEY, { hasOnboarded: true });
+  },
+
+  /** T04 §A.3 — remember the last module the player started a game in. */
+  async setLastPlayedModule(moduleId: ModuleId): Promise<void> {
+    await getDb().settings.update(SINGLETON_KEY, { lastPlayedModule: moduleId });
   },
 
   /**
@@ -91,6 +98,7 @@ export const settingsRepo = {
         getDb().streaks,
         getDb().records,
         getDb().globalsRecord,
+        getDb().roulette,
       ],
       async () => {
         await getDb().settings.clear();
@@ -101,6 +109,7 @@ export const settingsRepo = {
         await getDb().streaks.clear();
         await getDb().records.clear();
         await getDb().globalsRecord.clear();
+        await getDb().roulette.clear();
       },
     );
   },
@@ -325,6 +334,80 @@ export const recordsRepo = {
 
   async putGlobals(row: GlobalsRecordRow): Promise<void> {
     await getDb().globalsRecord.put(row);
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Roulette repo (v3 — T04)                                            */
+/* ------------------------------------------------------------------ */
+
+/** Max earned spins that can be stored. The daily free spin does NOT stack. */
+export const MAX_EARNED_SPINS = 3;
+
+export const rouletteRepo = {
+  async get(): Promise<RouletteRow> {
+    const row = await getDb().roulette.get(SINGLETON_KEY);
+    if (row) return row;
+    await getDb().roulette.put(DEFAULT_ROULETTE);
+    return DEFAULT_ROULETTE;
+  },
+
+  async put(row: RouletteRow): Promise<void> {
+    await getDb().roulette.put(row);
+  },
+
+  /**
+   * Available spins for the given local day:
+   * the daily free spin (if not used today) + stored earned spins.
+   */
+  async availableSpins(todayLocal: string): Promise<number> {
+    const row = await rouletteRepo.get();
+    const daily = row.lastFreeSpinDay !== todayLocal ? 1 : 0;
+    return daily + row.earnedSpins;
+  },
+
+  /**
+   * Consume one spin. Priority: daily free spin first, then earned spins.
+   * Throws if no spins are available. Atomic.
+   */
+  async consumeSpin(todayLocal: string): Promise<RouletteRow> {
+    return getDb().transaction('rw', getDb().roulette, async () => {
+      const row = (await getDb().roulette.get(SINGLETON_KEY)) ?? DEFAULT_ROULETTE;
+      let next: RouletteRow;
+      if (row.lastFreeSpinDay !== todayLocal) {
+        next = { ...row, lastFreeSpinDay: todayLocal };
+      } else if (row.earnedSpins > 0) {
+        next = { ...row, earnedSpins: row.earnedSpins - 1 };
+      } else {
+        throw new Error('No hay giros disponibles');
+      }
+      await getDb().roulette.put(next);
+      return next;
+    });
+  },
+
+  /** Grant one earned spin (from a ≥8/10 round). Capped at MAX_EARNED_SPINS. */
+  async grantEarnedSpin(): Promise<RouletteRow> {
+    return getDb().transaction('rw', getDb().roulette, async () => {
+      const row = (await getDb().roulette.get(SINGLETON_KEY)) ?? DEFAULT_ROULETTE;
+      const next = {
+        ...row,
+        earnedSpins: Math.min(MAX_EARNED_SPINS, row.earnedSpins + 1),
+      };
+      await getDb().roulette.put(next);
+      return next;
+    });
+  },
+
+  async setPendingX2(v: boolean): Promise<void> {
+    const row = await rouletteRepo.get();
+    await getDb().roulette.put({ ...row, pendingX2: v });
+  },
+
+  /** Persist the decided prize BEFORE animating (decide → persist → animate). */
+  async setPendingPrize(segmentId: string | null): Promise<void> {
+    const row = await rouletteRepo.get();
+    await getDb().roulette.put({ ...row, pendingPrizeId: segmentId });
   },
 };
 

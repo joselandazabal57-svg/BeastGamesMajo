@@ -34,6 +34,11 @@ export type Settings = {
   hasOnboarded: boolean;
   /** Unix ms timestamp of the last user interaction. Used for session-close detection. */
   lastInteractionAt: number;
+  /**
+   * Last module the player started a game in (T04 §A — /jugar smart redirect).
+   * Optional non-indexed field: no schema version bump required.
+   */
+  lastPlayedModule?: ModuleId;
 };
 
 export type PrizeLedger = {
@@ -103,6 +108,26 @@ export type GlobalsRecordRow = {
 };
 
 /* ------------------------------------------------------------------ */
+/* v3 table types (T04 — Ruleta Bestial)                               */
+/* ------------------------------------------------------------------ */
+
+/** Roulette state (singleton). Spins are EARNED only — never purchasable. */
+export type RouletteRow = {
+  id: typeof SINGLETON_KEY;
+  /** 'YYYY-MM-DD' local date when the daily free spin was last used. '' = never. */
+  lastFreeSpinDay: string;
+  /** Spins earned by winning rounds (≥8/10 correct). Capped at 3. */
+  earnedSpins: number;
+  /** True if the x2-next prize is waiting to double the next round's coins. */
+  pendingX2: boolean;
+  /**
+   * Segment id of a prize that was decided+persisted but not yet revealed
+   * to the player (decide → persist → animate order). Null = none pending.
+   */
+  pendingPrizeId: string | null;
+};
+
+/* ------------------------------------------------------------------ */
 /* DB class                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -115,6 +140,7 @@ export class BeastGamesDB extends Dexie {
   streaks!: Table<StreaksRow, typeof SINGLETON_KEY>;
   records!: Table<GameRecordRow, string>;
   globalsRecord!: Table<GlobalsRecordRow, typeof SINGLETON_KEY>;
+  roulette!: Table<RouletteRow, typeof SINGLETON_KEY>;
 
   constructor() {
     super('beast-games');
@@ -131,6 +157,10 @@ export class BeastGamesDB extends Dexie {
       streaks: 'id',
       records: 'key',
       globalsRecord: 'id',
+    });
+    // v3 — additive: roulette singleton (T04). Existing data preserved.
+    this.version(3).stores({
+      roulette: 'id',
     });
   }
 }
@@ -186,4 +216,12 @@ export const DEFAULT_GLOBALS_RECORD: GlobalsRecordRow = {
   id: SINGLETON_KEY,
   totalAnswered: 0,
   totalCorrect: 0,
+};
+
+export const DEFAULT_ROULETTE: RouletteRow = {
+  id: SINGLETON_KEY,
+  lastFreeSpinDay: '',
+  earnedSpins: 0,
+  pendingX2: false,
+  pendingPrizeId: null,
 };

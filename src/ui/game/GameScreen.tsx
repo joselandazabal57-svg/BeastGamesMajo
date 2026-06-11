@@ -27,6 +27,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore, useProgressStore } from '@/state';
 import { useStreaksStore } from '@/state/useStreaksStore';
 import { useRecordsStore } from '@/state/useRecordsStore';
+import { useRouletteStore } from '@/state/useRouletteStore';
+import { useSettingsStore } from '@/state/useSettingsStore';
 import { selectNextItem, initialState } from '@/domain/leitner/engine';
 import { coinsForCorrect } from '@/domain/scoring/coins';
 import { audioManager } from '@/infra/audio/manager';
@@ -35,7 +37,7 @@ import type { ActiveEffects } from '@/domain/shop/effects';
 import { PromptDisplay } from './PromptDisplay';
 import { NumericInput } from './NumericInput';
 import { GameHUD } from './GameHUD';
-import { FeedbackFlash, PrizeLadder, Button, LivesRow } from '@/ui/shared';
+import { FeedbackFlash, PrizeLadder, Button, LivesRow, Modal } from '@/ui/shared';
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -100,6 +102,8 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
   const [roundCorrect, setRoundCorrect] = useState(0);
   const [newStreakRecord, setNewStreakRecord] = useState(false);
   const [masteryBonusCount, setMasteryBonusCount] = useState(0);
+  const [spinEarned, setSpinEarned] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
 
   /* Refs to avoid stale closures in timeout callbacks */
   const phaseRef = useRef<Phase>('loading');
@@ -109,6 +113,7 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
 
   /* ── Boot ─────────────────────────────────────────────────────── */
   useEffect(() => {
+    let cancelled = false;
     const statesByItem = useProgressStore.getState().statesByItem;
     const moduleStates = Object.values(statesByItem).filter((s) =>
       s.itemId.startsWith(moduleId + '.'),
@@ -119,18 +124,35 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
       return;
     }
 
-    startGame({
-      moduleId,
-      gameMode: 'reto-reloj',
-      items,
-      firstItem: first,
-      lives: 3,
-      timeLimitMs: TIME_PER_Q_MS,
-      effects,
+    // T04 §A.3 — remember the last played module for the /jugar shortcut.
+    void useSettingsStore.getState().setLastPlayedModule(moduleId);
+
+    // T04 §B.4 — consume a pending x2 prize from the roulette: it doubles
+    // this round's coins. If a doble-monedas powerup is also active the
+    // multiplier stays 2 (no stacking).
+    void useRouletteStore.getState().consumePendingX2().then((hadX2) => {
+      if (cancelled) return;
+      const baseEffects = effects ?? {
+        hintsAvailable: 0, freezeAvailable: false, extraTimeMs: 0,
+        extraLives: 0, shieldActive: false, coinMultiplier: 1 as const,
+      };
+      const merged = hadX2
+        ? { ...baseEffects, coinMultiplier: 2 as const }
+        : baseEffects;
+      startGame({
+        moduleId,
+        gameMode: 'reto-reloj',
+        items,
+        firstItem: first,
+        lives: 3,
+        timeLimitMs: TIME_PER_Q_MS,
+        effects: merged,
+      });
+      setPhase('question');
     });
-    setPhase('question');
 
     return () => {
+      cancelled = true;
       reset();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -172,6 +194,12 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
     // Apply coin multiplier bonus (doble-monedas adds the EXTRA half).
     if (coinMultiplier > 1) {
       await addCoins(roundScore); // already added per-answer; this doubles it
+    }
+
+    // T04 §B.1 — a round with ≥8/10 correct earns a roulette spin (cap 3).
+    if (finalCorrect >= 8) {
+      await useRouletteStore.getState().grantSpinForRound();
+      setSpinEarned(true);
     }
 
     await updateAfterRound({
@@ -330,6 +358,7 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
         reason={finishReason}
         newStreakRecord={newStreakRecord}
         masteryBonusCount={masteryBonusCount}
+        spinEarned={spinEarned}
         onReplay={() => {
           router.refresh();
         }}
@@ -350,7 +379,16 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
 
       {/* Progress pill */}
       <div className="flex items-center justify-between text-xs text-white/30">
-        <span>
+        <span className="flex items-center gap-3">
+          {/* A.4 — explicit exit with confirmation (the BeastNav is hidden mid-round) */}
+          <button
+            type="button"
+            onClick={() => setConfirmExit(true)}
+            className="text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+            aria-label="Salir de la ronda"
+          >
+            ✕ Salir
+          </button>
           {questionCount + 1} / {TOTAL_Q}
         </span>
         <div className="flex items-center gap-2">
@@ -438,6 +476,28 @@ export function GameScreen({ moduleId, items, effects }: GameScreenProps) {
 
       {/* Feedback overlay */}
       <FeedbackFlash state={flash} />
+
+      {/* A.4 — exit confirmation modal */}
+      <Modal open={confirmExit} onClose={() => setConfirmExit(false)} title="¿Seguro?">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm" style={{ color: 'var(--color-ink-dim)' }}>
+            Perderás esta ronda.
+          </p>
+          <Button fullWidth onClick={() => setConfirmExit(false)}>
+            Seguir jugando
+          </Button>
+          <Button
+            variant="ghost"
+            fullWidth
+            onClick={() => {
+              reset();
+              router.back();
+            }}
+          >
+            Salir
+          </Button>
+        </div>
+      </Modal>
     </motion.div>
   );
 }
@@ -450,12 +510,14 @@ function FinishedScreen({
   reason,
   newStreakRecord,
   masteryBonusCount,
+  spinEarned,
   onReplay,
   onHome,
 }: {
   reason: FinishReason;
   newStreakRecord: boolean;
   masteryBonusCount: number;
+  spinEarned: boolean;
   onReplay: () => void;
   onHome: () => void;
 }) {
@@ -482,6 +544,21 @@ function FinishedScreen({
       >
         {isVictory ? '¡Lo lograste!' : 'Game Over'}
       </h1>
+
+      {/* T04 — earned roulette spin */}
+      {spinEarned && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl"
+          style={{ background: 'color-mix(in srgb, var(--color-magenta) 15%, var(--color-panel))' }}
+        >
+          <span className="text-xl">🎡</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-magenta)' }}>
+            ¡Ganaste un giro de ruleta!
+          </span>
+        </motion.div>
+      )}
 
       {/* New streak record celebration */}
       {newStreakRecord && (
